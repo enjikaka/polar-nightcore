@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "@polar-sh/sdk": "npm:@polar-sh/sdk@^0.26.1"
+  }
+}

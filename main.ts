@@ -1,6 +1,6 @@
 import { Polar } from "npm:@polar-sh/sdk";
 
-function checkoutHandler (request: Request) {
+async function checkoutHandler (request: Request) {
     const polar = new Polar({
         accessToken: Deno.env.get("POLAR_ACCESS_TOKEN") ?? "",
     });
@@ -17,17 +17,17 @@ function checkoutHandler (request: Request) {
     })
 }
 
-function verifyHandler (request: Request) {
+async function verifyHandler (request: Request) {
     return new Response('Not yet implemented', { status: 404 });
 }
 
 
-function rootHandler (req: Request) {
+async function rootHandler (req: Request) {
     return new Response('Welcome to the Nightcore.app Polar service on Deno.');
 }
 
 const patternsToHandlers = new Map([
-  [{pathname: '/checkout'}, pageHandler],
+  [{pathname: '/checkout'}, checkoutHandler],
   [{pathname: '/verify'}, verifyHandler],
   [{pathname: '/'}, rootHandler],
 ]);
