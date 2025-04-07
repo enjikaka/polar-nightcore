@@ -1,38 +1,179 @@
 import { Polar } from "npm:@polar-sh/sdk";
 
-async function checkoutHandler (request: Request) {
-    const polar = new Polar({
-        accessToken: Deno.env.get("POLAR_ACCESS_TOKEN") ?? "",
-    });
+let polar: Polar | null = null;
 
-    const checkout = await polar.checkouts.create({
-        productId: "3155f5e1-3730-44b4-a28d-8a3d5752f1fe",
-    });
+function getPolar() {
+  if (!polar) {
+    const { accessToken, server } = getEnvVars();
 
-    return new Response(null, {
-        status: 302,
-        headers: {
-            'Location': checkout.url
-        }
-    })
+    polar = new Polar({
+      server,
+      accessToken,
+    });
+  }
+
+  return polar;
 }
 
-async function verifyHandler (request: Request) {
-    return new Response('Not yet implemented', { status: 404 });
+function getEnvVars(): {
+  accessToken: string;
+  productId: string;
+  organizationId: string;
+  server: "production" | "sandbox";
+} {
+  const envVars = [
+    "POLAR_ACCESS_TOKEN",
+    "POLAR_PRODUCT_ID",
+    "POLAR_SERVER",
+    "POLAR_ORGANIZATION_ID",
+  ];
+
+  for (const varName of envVars) {
+    if (!Deno.env.get(varName)) {
+      console.error(`Missing environment variable: ${varName}`);
+      Deno.exit(1);
+    }
+  }
+
+  return {
+    accessToken: Deno.env.get("POLAR_ACCESS_TOKEN")!,
+    productId: Deno.env.get("POLAR_PRODUCT_ID")!,
+    organizationId: Deno.env.get("POLAR_ORGANIZATION_ID")!,
+    server: Deno.env.get("POLAR_SERVER")! as "production" | "sandbox",
+  };
 }
 
+async function checkoutHandler(request: Request) {
+  const { productId } = getEnvVars();
 
-async function rootHandler (req: Request) {
-    return new Response('Welcome to the Nightcore.app Polar service on Deno.');
+  const polar = getPolar();
+
+  const checkout = await polar.checkouts.create({
+    productId,
+  });
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      "Location": checkout.url,
+    },
+  });
+}
+
+async function validateKey(key: string) {
+  const polar = getPolar();
+  const { organizationId } = getEnvVars();
+
+  const result = await polar.customerPortal.licenseKeys.validate({
+    key,
+    organizationId,
+  });
+
+  const valid = result.status === "granted" && result.limitUsage &&
+    result.usage < result.limitUsage;
+
+  return valid;
+}
+
+async function exhaustKey(key: string): Promise<boolean> {
+  const polar = getPolar();
+  const { organizationId } = getEnvVars();
+
+  const result = await polar.customerPortal.licenseKeys.validate({
+    key,
+    organizationId,
+    incrementUsage: 1,
+  });
+
+  const valid = result.status === "granted" && result.limitUsage &&
+    result.usage < result.limitUsage;
+
+  return !valid;
+}
+
+/**
+ * Validate a license key provided by the user.
+ * @param request
+ * @returns
+ */
+async function validateHandler(
+  request: Request,
+) {
+  const url = new URL(request.url);
+  const key = url.searchParams.get("key");
+
+  if (!key) {
+    return new Response("Missing license key", { status: 400 });
+  }
+
+  const valid = await validateKey(key);
+
+  return new Response(JSON.stringify({ valid }), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
+
+/**
+ * Use up a license key provided by the user.
+ * @param request
+ * @returns
+ */
+async function useHandler(
+  request: Request,
+) {
+  const url = new URL(request.url);
+  const key = url.searchParams.get("key");
+
+  if (!key) {
+    return new Response("Missing license key", { status: 400 });
+  }
+
+  const valid = await validateKey(key);
+
+  if (valid) {
+    const exhausted = await exhaustKey(key);
+
+    if (exhausted) {
+      return new Response(
+        JSON.stringify({ valid: true }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
+  }
+
+  return new Response(
+    JSON.stringify({ message: "Licence key is not valid" }),
+    {
+      status: 400,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    },
+  );
+}
+
+async function rootHandler(req: Request) {
+  return new Response("Welcome to the Nightcore.app Polar service on Deno.");
 }
 
 const patternsToHandlers = new Map([
-  [{pathname: '/checkout'}, checkoutHandler],
-  [{pathname: '/verify'}, verifyHandler],
-  [{pathname: '/'}, rootHandler],
+  [{ pathname: "/checkout" }, checkoutHandler],
+  [{ pathname: "/validate" }, validateHandler],
+  [{ pathname: "/use" }, useHandler],
+  [{ pathname: "/validate/:key" }, validateHandler],
+  [{ pathname: "/" }, rootHandler],
 ]);
 
-const routingMap = new Map();
+const routingMap: Map<URLPattern, (request: Request) => Promise<Response>> =
+  new Map();
 
 for (const [patternInput, handler] of patternsToHandlers) {
   const compiledPattern = new URLPattern(patternInput);
@@ -40,10 +181,12 @@ for (const [patternInput, handler] of patternsToHandlers) {
 }
 
 Deno.serve((request: Request) => {
-    for (const [compiledPattern, handler] of routingMap) {
-        const result = compiledPattern.exec(request.url);
-        if (result) {
-            return handler(result);
-        }
+  for (const [compiledPattern, handler] of routingMap) {
+    const result = compiledPattern.exec(request.url);
+    if (result) {
+      return handler(request);
+    }
   }
+
+  return new Response("Not found", { status: 404 });
 });
