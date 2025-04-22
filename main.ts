@@ -2,6 +2,30 @@ import { Polar } from "npm:@polar-sh/sdk";
 
 let polar: Polar | null = null;
 
+/**
+ * Generates Headers with Access-Control-Allow-Origin.
+ * If a response is passed in, the headers are cloned
+ * and the CORS header set before the Headers are returned.
+ */
+function corsHeaders(request: Request): Headers {
+  const origin = request.headers.get("origin");
+  const headers = new Headers();
+  const allowedOrigins = [
+    "https://nightcore.app",
+    "http://localhost:1337",
+  ];
+
+  if (!origin) {
+    return new Headers();
+  }
+
+  if (allowedOrigins.includes(origin)) {
+    headers.set("access-control-allow-origin", origin);
+  }
+
+  return headers;
+}
+
 function getPolar() {
   if (!polar) {
     const { accessToken, server } = getEnvVars();
@@ -108,11 +132,13 @@ async function validateHandler(
 
   const valid = await validateKey(key);
 
+  const headers = corsHeaders(request);
+
+  headers.append("content-type", "application/json");
+
   return new Response(JSON.stringify({ valid }), {
     status: 200,
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers,
   });
 }
 
@@ -149,13 +175,15 @@ async function useHandler(
     }
   }
 
+  const headers = corsHeaders(request);
+
+  headers.append("Content-Type", "application/json");
+
   return new Response(
     JSON.stringify({ message: "Licence key is not valid" }),
     {
       status: 400,
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
     },
   );
 }
