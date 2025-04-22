@@ -209,6 +209,10 @@ for (const [patternInput, handler] of patternsToHandlers) {
 }
 
 Deno.serve((request: Request) => {
+  if (request.method.toUpperCase() === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders(request) });
+  }
+
   for (const [compiledPattern, handler] of routingMap) {
     const result = compiledPattern.exec(request.url);
     if (result) {
