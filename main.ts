@@ -102,11 +102,13 @@ async function checkoutHandler(request: Request) {
     productId,
   });
 
-  return new Response(null, {
-    status: 302,
-    headers: {
-      "Location": checkout.url,
-    },
+  const headers = corsHeaders(request);
+
+  headers.append("content-type", "application/json");
+
+  return new Response(JSON.stringify({ url: checkout.url }), {
+    status: 200,
+    headers,
   });
 }
 
