@@ -99,8 +99,7 @@ async function validateKey(key: string) {
       result.usage < result.limitUsage;
 
     return valid;
-  } catch (e) {
-    console.error(e);
+  } catch (_e) {
     return false;
   }
 }
