@@ -36,6 +36,10 @@ function getPolar(req: Request) {
   if (!polar) {
     const { accessToken, server } = getEnvVars(chooseServer(req));
 
+    console.debug(
+      `Origin is ${req.headers.get("origin")}, using server: ${server}`,
+    );
+
     polar = new Polar({
       server,
       accessToken,
