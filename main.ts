@@ -44,6 +44,8 @@ function getPolar(req: Request) {
       server,
       accessToken,
     });
+  } else {
+    console.debug("Using cached Polar instance", polar._options);
   }
 
   return polar;
