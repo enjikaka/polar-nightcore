@@ -137,20 +137,16 @@ async function exhaustKey(key: string, request: Request): Promise<boolean> {
   const server = chooseServer(request);
   const { organizationId } = getEnvVars(server);
 
-  try {
-    const result = await polar.customerPortal.licenseKeys.validate({
-      key,
-      organizationId,
-      incrementUsage: 1,
-    });
+  const result = await polar.customerPortal.licenseKeys.validate({
+    key,
+    organizationId,
+    incrementUsage: 1,
+  });
 
-    const valid = result.status === "granted" && result.limitUsage &&
-      result.usage < result.limitUsage;
+  const valid = result.status === "granted" && result.limitUsage !== null &&
+    result.usage < result.limitUsage;
 
-    return !valid;
-  } catch (e) {
-    return true;
-  }
+  return valid;
 }
 
 /**
@@ -190,40 +186,32 @@ async function useHandler(
 ) {
   const url = new URL(request.url);
   const key = url.searchParams.get("key");
+  const headers = corsHeaders(request);
+
+  headers.append("content-type", "application/json");
 
   if (!key) {
     return new Response("Missing license key", { status: 400 });
   }
 
-  const valid = await validateKey(key, request);
-
-  if (valid) {
-    const exhausted = await exhaustKey(key, request);
-
-    if (exhausted) {
-      return new Response(
-        JSON.stringify({ valid: true }),
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
-    }
+  try {
+    const valid = await exhaustKey(key, request);
+    return new Response(
+      JSON.stringify({ valid }),
+      {
+        status: 200,
+        headers,
+      },
+    );
+  } catch (_e) {
+    return new Response(
+      JSON.stringify({ message: "Licence key is not valid" }),
+      {
+        status: 400,
+        headers,
+      },
+    );
   }
-
-  const headers = corsHeaders(request);
-
-  headers.append("Content-Type", "application/json");
-
-  return new Response(
-    JSON.stringify({ message: "Licence key is not valid" }),
-    {
-      status: 400,
-      headers,
-    },
-  );
 }
 
 async function rootHandler(req: Request) {
