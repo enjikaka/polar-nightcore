@@ -54,14 +54,12 @@ function getEnvVars(server: "production" | "sandbox"): {
   const sandboxEnvVars = [
     "SANDBOX_POLAR_ACCESS_TOKEN",
     "SANDBOX_POLAR_PRODUCT_ID",
-    "SANDBOX_POLAR_SERVER",
     "SANDBOX_POLAR_ORGANIZATION_ID",
   ];
 
   const productionEnvVars = [
     "POLAR_ACCESS_TOKEN",
     "POLAR_PRODUCT_ID",
-    "POLAR_SERVER",
     "POLAR_ORGANIZATION_ID",
   ];
 
@@ -75,9 +73,15 @@ function getEnvVars(server: "production" | "sandbox"): {
   }
 
   return {
-    accessToken: Deno.env.get("POLAR_ACCESS_TOKEN")!,
-    productId: Deno.env.get("POLAR_PRODUCT_ID")!,
-    organizationId: Deno.env.get("POLAR_ORGANIZATION_ID")!,
+    accessToken: server === "sandbox"
+      ? Deno.env.get("SANDBOX_POLAR_ACCESS_TOKEN")!
+      : Deno.env.get("POLAR_ACCESS_TOKEN")!,
+    productId: server === "sandbox"
+      ? Deno.env.get("SANDBOX_POLAR_PRODUCT_ID")!
+      : Deno.env.get("POLAR_PRODUCT_ID")!,
+    organizationId: server === "sandbox"
+      ? Deno.env.get("SANDBOX_POLAR_ORGANIZATION_ID")!
+      : Deno.env.get("POLAR_ORGANIZATION_ID")!,
     server,
   };
 }
