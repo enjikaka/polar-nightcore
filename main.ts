@@ -100,7 +100,7 @@ async function checkoutHandler(request: Request) {
   const polar = getPolar(request);
 
   const checkout = await polar.checkouts.create({
-    productId,
+    products: [productId],
   });
 
   const headers = corsHeaders(request);
@@ -113,7 +113,11 @@ async function checkoutHandler(request: Request) {
   });
 }
 
-async function validateKey(key: string, request: Request) {
+async function validateKey(key: string, request: Request) : Promise<{
+  valid: boolean,
+  limitUsage: number | null,
+  usage: number | null
+}> {
   const polar = getPolar(request);
   const server = chooseServer(request);
   const { organizationId } = getEnvVars(server);
@@ -124,12 +128,20 @@ async function validateKey(key: string, request: Request) {
       organizationId,
     });
 
-    const valid = result.status === "granted" && result.limitUsage &&
+    const valid = result.status === "granted" && result.limitUsage !== null &&
       result.usage < result.limitUsage;
 
-    return valid;
+    return {
+      valid,
+      limitUsage: result.limitUsage!,
+      usage: result.usage,
+    };
   } catch (_e) {
-    return false;
+    return {
+      valid: false,
+      limitUsage: null,
+      usage: null
+    };
   }
 }
 
@@ -165,13 +177,13 @@ async function validateHandler(
     return new Response("Missing license key", { status: 400 });
   }
 
-  const valid = await validateKey(key, request);
+  const result = await validateKey(key, request);
 
   const headers = corsHeaders(request);
 
   headers.append("content-type", "application/json");
 
-  return new Response(JSON.stringify({ valid }), {
+  return new Response(JSON.stringify(result), {
     status: 200,
     headers,
   });

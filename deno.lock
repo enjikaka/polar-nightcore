@@ -1,12 +1,11 @@
 {
   "version": "4",
   "specifiers": {
-    "npm:@polar-sh/sdk@*": "0.26.1_zod@3.24.2",
-    "npm:@polar-sh/sdk@~0.26.1": "0.26.1_zod@3.24.2"
+    "npm:@polar-sh/sdk@~0.32.11": "0.32.11_zod@3.24.3"
   },
   "npm": {
-    "@polar-sh/sdk@0.26.1_zod@3.24.2": {
-      "integrity": "sha512-OEaxiNJaxpeNi7LANHR5S71BAyORk6W0lwkfHcrGyMGS9VDdgXnZjB8QZ3tFSXbQvt3yZdHShX6pPC8xOxNvFw==",
+    "@polar-sh/sdk@0.32.11_zod@3.24.3": {
+      "integrity": "sha512-GmMDrWyJJnM45rByMRkY8U8DYbL2ggJNohhTc/9naMlGHnP3+RRgIG9IG6yxuXfQ1wljKyoViHAWCAGCvS3DPA==",
       "dependencies": [
         "standardwebhooks",
         "zod"
@@ -25,13 +24,13 @@
         "fast-sha256"
       ]
     },
-    "zod@3.24.2": {
-      "integrity": "sha512-lY7CDW43ECgW9u1TcT3IoXHflywfVqDYze4waEz812jR/bZ8FHDsl7pFQoSZTz5N+2NqRXs8GBwnAwo3ZNxqhQ=="
+    "zod@3.24.3": {
+      "integrity": "sha512-HhY1oqzWCQWuUqvBFnsyrtZRhyPeR7SUGv+C4+MsisMuVfSPx8HpwWqH8tRahSlt6M3PiFAcoeFhZAqIXTxoSg=="
     }
   },
   "workspace": {
     "dependencies": [
-      "npm:@polar-sh/sdk@~0.26.1"
+      "npm:@polar-sh/sdk@~0.32.11"
     ]
   }
 }
