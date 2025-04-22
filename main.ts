@@ -89,31 +89,40 @@ async function validateKey(key: string) {
   const polar = getPolar();
   const { organizationId } = getEnvVars();
 
-  const result = await polar.customerPortal.licenseKeys.validate({
-    key,
-    organizationId,
-  });
+  try {
+    const result = await polar.customerPortal.licenseKeys.validate({
+      key,
+      organizationId,
+    });
 
-  const valid = result.status === "granted" && result.limitUsage &&
-    result.usage < result.limitUsage;
+    const valid = result.status === "granted" && result.limitUsage &&
+      result.usage < result.limitUsage;
 
-  return valid;
+    return valid;
+  } catch (e) {
+    console.error(e);
+    return false;
+  }
 }
 
 async function exhaustKey(key: string): Promise<boolean> {
   const polar = getPolar();
   const { organizationId } = getEnvVars();
 
-  const result = await polar.customerPortal.licenseKeys.validate({
-    key,
-    organizationId,
-    incrementUsage: 1,
-  });
+  try {
+    const result = await polar.customerPortal.licenseKeys.validate({
+      key,
+      organizationId,
+      incrementUsage: 1,
+    });
 
-  const valid = result.status === "granted" && result.limitUsage &&
-    result.usage < result.limitUsage;
+    const valid = result.status === "granted" && result.limitUsage &&
+      result.usage < result.limitUsage;
 
-  return !valid;
+    return !valid;
+  } catch (e) {
+    return true;
+  }
 }
 
 /**
