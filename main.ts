@@ -2,6 +2,11 @@ import { Polar } from "npm:@polar-sh/sdk";
 
 let polar: Polar | null = null;
 
+const chooseServer = (req: Request) =>
+  req.headers.get("origin")?.includes("localhost:1337")
+    ? "sandbox"
+    : "production";
+
 /**
  * Generates Headers with Access-Control-Allow-Origin.
  * If a response is passed in, the headers are cloned
@@ -27,9 +32,9 @@ function corsHeaders(request: Request): Headers {
   return headers;
 }
 
-function getPolar() {
+function getPolar(req: Request) {
   if (!polar) {
-    const { accessToken, server } = getEnvVars();
+    const { accessToken, server } = getEnvVars(chooseServer(req));
 
     polar = new Polar({
       server,
@@ -40,18 +45,27 @@ function getPolar() {
   return polar;
 }
 
-function getEnvVars(): {
+function getEnvVars(server: "production" | "sandbox"): {
   accessToken: string;
   productId: string;
   organizationId: string;
   server: "production" | "sandbox";
 } {
-  const envVars = [
+  const sandboxEnvVars = [
+    "SANDBOX_POLAR_ACCESS_TOKEN",
+    "SANDBOX_POLAR_PRODUCT_ID",
+    "SANDBOX_POLAR_SERVER",
+    "SANDBOX_POLAR_ORGANIZATION_ID",
+  ];
+
+  const productionEnvVars = [
     "POLAR_ACCESS_TOKEN",
     "POLAR_PRODUCT_ID",
     "POLAR_SERVER",
     "POLAR_ORGANIZATION_ID",
   ];
+
+  const envVars = server === "sandbox" ? sandboxEnvVars : productionEnvVars;
 
   for (const varName of envVars) {
     if (!Deno.env.get(varName)) {
@@ -69,9 +83,10 @@ function getEnvVars(): {
 }
 
 async function checkoutHandler(request: Request) {
-  const { productId } = getEnvVars();
+  const server = chooseServer(request);
+  const { productId } = getEnvVars(server);
 
-  const polar = getPolar();
+  const polar = getPolar(request);
 
   const checkout = await polar.checkouts.create({
     productId,
@@ -85,9 +100,10 @@ async function checkoutHandler(request: Request) {
   });
 }
 
-async function validateKey(key: string) {
-  const polar = getPolar();
-  const { organizationId } = getEnvVars();
+async function validateKey(key: string, request: Request) {
+  const polar = getPolar(request);
+  const server = chooseServer(request);
+  const { organizationId } = getEnvVars(server);
 
   try {
     const result = await polar.customerPortal.licenseKeys.validate({
@@ -104,9 +120,10 @@ async function validateKey(key: string) {
   }
 }
 
-async function exhaustKey(key: string): Promise<boolean> {
-  const polar = getPolar();
-  const { organizationId } = getEnvVars();
+async function exhaustKey(key: string, request: Request): Promise<boolean> {
+  const polar = getPolar(request);
+  const server = chooseServer(request);
+  const { organizationId } = getEnvVars(server);
 
   try {
     const result = await polar.customerPortal.licenseKeys.validate({
@@ -139,7 +156,7 @@ async function validateHandler(
     return new Response("Missing license key", { status: 400 });
   }
 
-  const valid = await validateKey(key);
+  const valid = await validateKey(key, request);
 
   const headers = corsHeaders(request);
 
@@ -166,10 +183,10 @@ async function useHandler(
     return new Response("Missing license key", { status: 400 });
   }
 
-  const valid = await validateKey(key);
+  const valid = await validateKey(key, request);
 
   if (valid) {
-    const exhausted = await exhaustKey(key);
+    const exhausted = await exhaustKey(key, request);
 
     if (exhausted) {
       return new Response(
