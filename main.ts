@@ -17,6 +17,7 @@ function corsHeaders(request: Request): Headers {
   const headers = new Headers();
   const allowedOrigins = [
     "https://nightcore.app",
+    "https://nightcore--polar.deno.dev",
     "http://localhost:1337",
   ];
 
