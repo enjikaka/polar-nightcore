@@ -78,7 +78,7 @@ function getEnvVars(server: "production" | "sandbox"): {
     accessToken: Deno.env.get("POLAR_ACCESS_TOKEN")!,
     productId: Deno.env.get("POLAR_PRODUCT_ID")!,
     organizationId: Deno.env.get("POLAR_ORGANIZATION_ID")!,
-    server: Deno.env.get("POLAR_SERVER")! as "production" | "sandbox",
+    server,
   };
 }
 
