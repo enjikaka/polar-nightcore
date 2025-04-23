@@ -27,6 +27,8 @@ function corsHeaders(request: Request): Headers {
 
   if (allowedOrigins.includes(origin)) {
     headers.set("access-control-allow-origin", origin);
+    headers.set("access-control-allow-methods", "GET, OPTIONS");
+headers.set("access-control-allow-headers", "content-type");
     headers.set("vary", "origin");
   }
 
