@@ -2,17 +2,6 @@ import { Polar } from "npm:@polar-sh/sdk";
 
 let polar: Polar | null = null;
 
-console.log({
-  'POLAR_ACCESS_TOKEN': Deno.env.get('POLAR_ACCESS_TOKEN'),
-  'POLAR_ORGANIZATION_ID': Deno.env.get('POLAR_ORGANIZATION_ID'),
-  'POLAR_PRODUCT_ID': Deno.env.get('POLAR_PRODUCT_ID'),
-  'POLAR_SERVER': Deno.env.get('POLAR_SERVER'),
-  'SANDBOX_POLAR_ACCESS_TOKEN': Deno.env.get('SANDBOX_POLAR_ACCESS_TOKEN'),
-  'SANDBOX_POLAR_ORGANIZATION_ID': Deno.env.get('SANDBOX_POLAR_ORGANIZATION_ID'),
-  'SANDBOX_POLAR_PRODUCT_ID': Deno.env.get('SANDBOX_POLAR_PRODUCT_ID'),
-  'SANDBOX_POLAR_SERVER': Deno.env.get('SANDBOX_POLAR_SERVER'),
-});
-
 const chooseServer = (req: Request) =>
   req.headers.get("origin")?.includes("localhost:1337")
     ? "sandbox"
