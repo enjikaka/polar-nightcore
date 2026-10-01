@@ -1,6 +1,6 @@
-import { Polar } from "npm:@polar-sh/sdk";
+import { createPolar } from "npm:@polar-sh/sdk/2026-10";
 
-let polar: Polar | null = null;
+let polar: ReturnType<typeof createPolar> | null = null;
 
 const chooseServer = (req: Request) =>
   req.headers.get("origin")?.includes("localhost:1337")
@@ -28,7 +28,7 @@ function corsHeaders(request: Request): Headers {
   if (allowedOrigins.includes(origin)) {
     headers.set("access-control-allow-origin", origin);
     headers.set("access-control-allow-methods", "GET, OPTIONS");
-headers.set("access-control-allow-headers", "content-type");
+    headers.set("access-control-allow-headers", "content-type");
     headers.set("vary", "origin");
   }
 
@@ -37,28 +37,28 @@ headers.set("access-control-allow-headers", "content-type");
 
 function getPolar(req: Request) {
   if (!polar) {
-    const { accessToken, server } = getEnvVars(chooseServer(req));
+    const { accessToken, environment } = getEnvVars(chooseServer(req));
 
     console.debug(
-      `Origin is ${req.headers.get("origin")}, using server: ${server}`,
+      `Origin is ${req.headers.get("origin")}, using server: ${environment}`,
     );
 
-    polar = new Polar({
-      server,
+    polar = createPolar({
+      environment,
       accessToken,
     });
   } else {
-    console.debug("Using cached Polar instance", polar._options);
+    console.debug("Using cached Polar instance");
   }
 
   return polar;
 }
 
-function getEnvVars(server: "production" | "sandbox"): {
+function getEnvVars(environment: "production" | "sandbox"): {
   accessToken: string;
   productId: string;
   organizationId: string;
-  server: "production" | "sandbox";
+  environment: "production" | "sandbox";
 } {
   const sandboxEnvVars = [
     "SANDBOX_POLAR_ACCESS_TOKEN",
@@ -72,7 +72,7 @@ function getEnvVars(server: "production" | "sandbox"): {
     "POLAR_ORGANIZATION_ID",
   ];
 
-  const envVars = server === "sandbox" ? sandboxEnvVars : productionEnvVars;
+  const envVars = environment === "sandbox" ? sandboxEnvVars : productionEnvVars;
 
   for (const varName of envVars) {
     if (!Deno.env.get(varName)) {
@@ -82,16 +82,19 @@ function getEnvVars(server: "production" | "sandbox"): {
   }
 
   return {
-    accessToken: server === "sandbox"
-      ? Deno.env.get("SANDBOX_POLAR_ACCESS_TOKEN")!
-      : Deno.env.get("POLAR_ACCESS_TOKEN")!,
-    productId: server === "sandbox"
-      ? Deno.env.get("SANDBOX_POLAR_PRODUCT_ID")!
-      : Deno.env.get("POLAR_PRODUCT_ID")!,
-    organizationId: server === "sandbox"
-      ? Deno.env.get("SANDBOX_POLAR_ORGANIZATION_ID")!
-      : Deno.env.get("POLAR_ORGANIZATION_ID")!,
-    server,
+    accessToken:
+      environment === "sandbox"
+        ? Deno.env.get("SANDBOX_POLAR_ACCESS_TOKEN")!
+        : Deno.env.get("POLAR_ACCESS_TOKEN")!,
+    productId:
+      environment === "sandbox"
+        ? Deno.env.get("SANDBOX_POLAR_PRODUCT_ID")!
+        : Deno.env.get("POLAR_PRODUCT_ID")!,
+    organizationId:
+      environment === "sandbox"
+        ? Deno.env.get("SANDBOX_POLAR_ORGANIZATION_ID")!
+        : Deno.env.get("POLAR_ORGANIZATION_ID")!,
+    environment,
   };
 }
 
@@ -115,34 +118,39 @@ async function checkoutHandler(request: Request) {
   });
 }
 
-async function validateKey(key: string, request: Request) : Promise<{
-  valid: boolean,
-  limitUsage: number | null,
-  usage: number | null
+async function validateKey(
+  key: string,
+  request: Request,
+): Promise<{
+  valid: boolean;
+  limitUsage: number | null;
+  usage: number | null;
 }> {
   const polar = getPolar(request);
   const server = chooseServer(request);
-  const { organizationId } = getEnvVars(server);
+  const { organizationId: organization_id } = getEnvVars(server);
 
   try {
     const result = await polar.customerPortal.licenseKeys.validate({
       key,
-      organizationId,
+      organization_id,
     });
 
-    const valid = result.status === "granted" && result.limitUsage !== null &&
-      result.usage < result.limitUsage;
+    const valid =
+      result.status === "granted" &&
+      result.limit_usage !== null &&
+      result.usage < result.limit_usage;
 
     return {
       valid,
-      limitUsage: result.limitUsage!,
+      limitUsage: result.limit_usage!,
       usage: result.usage,
     };
   } catch (_e) {
     return {
       valid: false,
       limitUsage: null,
-      usage: null
+      usage: null,
     };
   }
 }
@@ -150,16 +158,18 @@ async function validateKey(key: string, request: Request) : Promise<{
 async function exhaustKey(key: string, request: Request): Promise<boolean> {
   const polar = getPolar(request);
   const server = chooseServer(request);
-  const { organizationId } = getEnvVars(server);
+  const { organizationId: organization_id } = getEnvVars(server);
 
   const result = await polar.customerPortal.licenseKeys.validate({
     key,
-    organizationId,
-    incrementUsage: 1,
+    organization_id,
+    increment_usage: 1,
   });
 
-  const valid = result.status === "granted" && result.limitUsage !== null &&
-    result.usage < result.limitUsage;
+  const valid =
+    result.status === "granted" &&
+    result.limit_usage !== null &&
+    result.usage < result.limit_usage;
 
   return valid;
 }
@@ -169,9 +179,7 @@ async function exhaustKey(key: string, request: Request): Promise<boolean> {
  * @param request
  * @returns
  */
-async function validateHandler(
-  request: Request,
-) {
+async function validateHandler(request: Request) {
   const url = new URL(request.url);
   const key = url.searchParams.get("key");
 
@@ -196,9 +204,7 @@ async function validateHandler(
  * @param request
  * @returns
  */
-async function useHandler(
-  request: Request,
-) {
+async function useHandler(request: Request) {
   const url = new URL(request.url);
   const key = url.searchParams.get("key");
   const headers = corsHeaders(request);
@@ -211,13 +217,10 @@ async function useHandler(
 
   try {
     const valid = await exhaustKey(key, request);
-    return new Response(
-      JSON.stringify({ valid }),
-      {
-        status: 200,
-        headers,
-      },
-    );
+    return new Response(JSON.stringify({ valid }), {
+      status: 200,
+      headers,
+    });
   } catch (_e) {
     return new Response(
       JSON.stringify({ message: "Licence key is not valid" }),

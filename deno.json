@@ -1,6 +1,6 @@
 {
   "imports": {
-    "@polar-sh/sdk": "npm:@polar-sh/sdk@^0.32.11"
+    "@polar-sh/sdk": "npm:@polar-sh/sdk@^1.0.1"
   },
   "tasks": {
     "start:sandbox": "deno run --env-file=.env.sandbox --allow-all main.ts",
