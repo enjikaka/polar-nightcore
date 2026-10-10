@@ -22,11 +22,13 @@ RUN apt-get update \
 
 WORKDIR /src
 COPY nightcore-api.wat ./nightcore-api.wat
-RUN curl -fsSL https://github.com/WebAssembly/wasi-http/archive/refs/heads/main.tar.gz -o /tmp/wasi-http.tar.gz \
+COPY wit/nightcore.wit ./nightcore.wit
+RUN curl -fsSL https://github.com/WebAssembly/wasi-http/archive/refs/tags/v0.2.8.tar.gz -o /tmp/wasi-http.tar.gz \
   && tar -xzf /tmp/wasi-http.tar.gz -C /tmp \
+  && cp nightcore.wit /tmp/wasi-http-0.2.8/wit/nightcore.wit \
   && wasm-tools parse nightcore-api.wat -o nightcore-api.core.wasm \
-  && wasm-tools component embed /tmp/wasi-http-main/wit nightcore-api.core.wasm \
-      --world wasi:http/proxy --emit-canonical-names -o nightcore-api.embed.wasm \
+  && wasm-tools component embed /tmp/wasi-http-0.2.8/wit nightcore-api.core.wasm \
+      --world wasi:http/nightcore --emit-canonical-names -o nightcore-api.embed.wasm \
   && wasm-tools component new nightcore-api.embed.wasm -o nightcore-api.wasm
 
 FROM debian:bookworm-slim
@@ -48,4 +50,4 @@ RUN apt-get update \
 WORKDIR /app
 COPY --from=build /src/nightcore-api.wasm ./nightcore-api.wasm
 EXPOSE 8080
-CMD ["wasmtime", "serve", "--addr", "0.0.0.0:8080", "/app/nightcore-api.wasm"]
+CMD ["wasmtime", "serve", "-S", "cli,inherit-env", "--addr", "0.0.0.0:8080", "/app/nightcore-api.wasm"]
