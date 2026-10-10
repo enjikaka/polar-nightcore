@@ -1,0 +1,7 @@
+// Extra world added into the wasi:http@0.2.8 package at build time.
+package wasi:http@0.2.8;
+
+world nightcore {
+  include proxy;
+  import wasi:cli/environment@0.2.8;
+}
