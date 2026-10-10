@@ -1,4 +1,3 @@
 .git
 .env*
-deno.lock
 node_modules

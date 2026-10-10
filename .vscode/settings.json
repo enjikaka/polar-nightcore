@@ -1,5 +1,0 @@
-{
-  "deno.enable": true,
-  "deno.path": "/usr/local/bin/deno",
-  "editor.defaultFormatter": "denoland.vscode-deno"
-}

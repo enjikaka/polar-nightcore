@@ -40,4 +40,3 @@ CORS headers are only sent for `https://nightcore.app`,
 - `tools/gen-strings.py` - generates the string table (data segments + `$S_*`/`$L_*`
   globals) at the top of the WAT file. Re-run and paste if you add strings.
 - `hello-world.wat` - minimal reference example.
-- `main.ts`, `deno.json` - the old Deno implementation (can be removed).
