@@ -32,22 +32,15 @@ RUN curl -fsSL https://github.com/WebAssembly/wasi-http/archive/refs/tags/v0.2.8
   && wasm-tools component new nightcore-api.embed.wasm -o nightcore-api.wasm
 
 FROM debian:bookworm-slim
-ARG WASMTIME_VERSION=39.0.0
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl xz-utils \
+  && apt-get install -y --no-install-recommends ca-certificates \
   && rm -rf /var/lib/apt/lists/* \
-  && arch="$(uname -m)" \
-  && case "$arch" in \
-    x86_64) target="x86_64-linux" ;; \
-    aarch64|arm64) target="aarch64-linux" ;; \
-    *) echo "Unsupported architecture: $arch" >&2; exit 1 ;; \
-  esac \
-  && curl -fsSL "https://github.com/bytecodealliance/wasmtime/releases/download/v${WASMTIME_VERSION}/wasmtime-v${WASMTIME_VERSION}-${target}.tar.xz" -o /tmp/wasmtime.tar.xz \
-  && tar -xJf /tmp/wasmtime.tar.xz -C /tmp \
-  && mv /tmp/wasmtime-v${WASMTIME_VERSION}-${target}/wasmtime /usr/local/bin/wasmtime \
-  && rm -rf /tmp/wasmtime*
-
+  && useradd --system --no-create-home nightcore
+COPY --from=build /usr/local/bin/wasmtime /usr/local/bin/wasmtime
 WORKDIR /app
 COPY --from=build /src/nightcore-api.wasm ./nightcore-api.wasm
+USER nightcore
+# Small VPS: 2 tokio worker threads is plenty. HOME is writable for wasmtime's cache dir.
+ENV TOKIO_WORKER_THREADS=2 HOME=/tmp
 EXPOSE 8080
-CMD ["wasmtime", "serve", "-S", "cli,inherit-env", "--addr", "0.0.0.0:8080", "/app/nightcore-api.wasm"]
+ENTRYPOINT ["/usr/local/bin/wasmtime", "serve", "-S", "cli,inherit-env", "--addr", "0.0.0.0:8080", "/app/nightcore-api.wasm"]
