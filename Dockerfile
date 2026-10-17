@@ -43,4 +43,6 @@ USER nightcore
 # Small VPS: 2 tokio worker threads is plenty. HOME is writable for wasmtime's cache dir.
 ENV TOKIO_WORKER_THREADS=2 HOME=/tmp
 EXPOSE 8080
-ENTRYPOINT ["/usr/local/bin/wasmtime", "serve", "-S", "cli,inherit-env", "--addr", "0.0.0.0:8080", "/app/nightcore-api.wasm"]
+# Selective --env (not inherit-env): only Polar secrets reach the guest.
+# Reuse instances across requests now that the guest resets its bump heap.
+ENTRYPOINT ["/usr/local/bin/wasmtime", "serve", "-S", "cli", "--env", "POLAR_ACCESS_TOKEN", "--env", "POLAR_PRODUCT_ID", "--env", "POLAR_ORGANIZATION_ID", "--env", "SANDBOX_POLAR_ACCESS_TOKEN", "--env", "SANDBOX_POLAR_PRODUCT_ID", "--env", "SANDBOX_POLAR_ORGANIZATION_ID", "--max-instance-reuse-count", "128", "--max-instance-concurrent-reuse-count", "1", "--addr", "0.0.0.0:8080", "/app/nightcore-api.wasm"]
