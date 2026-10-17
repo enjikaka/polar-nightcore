@@ -15,9 +15,11 @@ docker run --rm -p 8080:8080 --env-file .env.production nightcore-polar-wasm
 docker run --rm -p 8080:8080 --env-file .env.sandbox nightcore-polar-wasm
 ```
 
-Env vars: `POLAR_ACCESS_TOKEN`, `POLAR_PRODUCT_ID`, `POLAR_ORGANIZATION_ID`, and
-the same prefixed with `SANDBOX_` for sandbox. The container runs
-`wasmtime serve -S cli,inherit-env` so the guest can read them.
+Env vars (must be set in the container / Dokku config):
+`POLAR_ACCESS_TOKEN`, `POLAR_PRODUCT_ID`, `POLAR_ORGANIZATION_ID`, and the same
+prefixed with `SANDBOX_` for sandbox. The entrypoint passes only those six via
+`wasmtime serve --env NAME` (no blanket `inherit-env`). Instances are reused
+across up to 128 requests (`--max-instance-reuse-count 128`).
 
 ## Routes
 
