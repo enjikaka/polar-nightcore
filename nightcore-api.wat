@@ -20,6 +20,13 @@
 ;;   0x3000..0x3FFF  "Bearer <token>"
 ;;   0x4000..0xBFFF  Polar response body (32 KiB)
 ;;   0x10000..       bump heap for cabi_realloc
+;;
+;; Instance reuse: $heap_retain marks the end of long-lived bump data
+;; (cached get-environment). Each handle() resets $heap to $heap_retain
+;; so per-request CABI temps (path, headers, Polar body lists) are reused.
+;; Defense-in-depth: handle() also memory.fill fixed scratch (0x0000..0x03FF,
+;; 0x2000..0xBFFF) and the reclaimed bump region [$heap_retain, 1MiB) so prior
+;; license keys / Polar JSON / Bearer bytes do not linger across sequential reuse.
 
 (module
   ;; ---- wasi:http/types ----
@@ -275,6 +282,8 @@
 
   ;; ---- state ----
   (global $heap (mut i32) (i32.const 65536))
+  ;; Bump cursor after long-lived allocations (env). handle() resets $heap here.
+  (global $heap_retain (mut i32) (i32.const 65536))
   (global $sandbox (mut i32) (i32.const 0))
   (global $origin_ptr (mut i32) (i32.const 0))
   (global $origin_len (mut i32) (i32.const 0))
@@ -287,7 +296,7 @@
   (global $r_len (mut i32) (i32.const 0))
   (global $r_json (mut i32) (i32.const 0))
 
-  ;; Canonical ABI allocator. A bump allocator that never frees.
+  ;; Canonical ABI allocator. Bump allocator; reclaim via $heap_retain in handle().
   (func (export "cm32p2_realloc")
     (param $old i32) (param $old_size i32) (param $align i32) (param $new_size i32)
     (result i32)
@@ -769,6 +778,33 @@
     (local $path i32) (local $len i32) (local $method i32)
     (local $resp i32) (local $fields i32) (local $body i32) (local $stream i32)
 
+    ;; Reclaim per-request bump allocations from the previous handle() on this
+    ;; instance (safe under wasmtime serve --max-instance-reuse-count > 1).
+    ;; Clear dangling pointers into that region before moving $heap backward.
+    (global.set $origin_ptr (i32.const 0))
+    (global.set $origin_len (i32.const 0))
+    (global.set $sandbox (i32.const 0))
+    (global.set $resp_len (i32.const 0))
+
+    ;; Wipe per-request scratch so sequential reuse cannot retain secrets in RAM.
+    ;; Do not touch the string table (0x0400..0x1FFF) or env bytes below $heap_retain.
+    (memory.fill (i32.const 0x0000) (i32.const 0) (i32.const 0x0400))
+    (memory.fill (i32.const 0x2000) (i32.const 0) (i32.const 0xa000))
+    (memory.fill
+      (global.get $heap_retain)
+      (i32.const 0)
+      (i32.sub (i32.const 1048576) (global.get $heap_retain)))
+    (global.set $heap (global.get $heap_retain))
+
+    ;; Cache get-environment across reused instances. Strings live below
+    ;; $heap_retain so later resets do not overwrite them.
+    (if (i32.eqz (global.get $env_ptr))
+      (then
+        (call $get_environment (i32.const 0x108))
+        (global.set $env_ptr (i32.load (i32.const 0x108)))
+        (global.set $env_n (i32.load (i32.const 0x10c)))
+        (global.set $heap_retain (global.get $heap))))
+
     ;; method variant tag (u8): 0 = get, 6 = options
     (call $req_method (local.get $req) (i32.const 32))
     (local.set $method (i32.load8_u (i32.const 32)))
@@ -790,11 +826,6 @@
           (i32.ne (i32.const 0)
             (call $find (global.get $origin_ptr) (global.get $origin_len)
               (global.get $S_localhost) (global.get $L_localhost))))))
-
-    ;; Load environment once.
-    (call $get_environment (i32.const 0x108))
-    (global.set $env_ptr (i32.load (i32.const 0x108)))
-    (global.set $env_n (i32.load (i32.const 0x10c)))
 
     ;; ---- route ----
     (call $reply (i32.const 404) (global.get $S_notfound) (global.get $L_notfound) (i32.const 0))

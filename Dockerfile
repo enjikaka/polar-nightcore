@@ -29,18 +29,24 @@ RUN curl -fsSL https://github.com/WebAssembly/wasi-http/archive/refs/tags/v0.2.8
   && wasm-tools parse nightcore-api.wat -o nightcore-api.core.wasm \
   && wasm-tools component embed /tmp/wasi-http-0.2.8/wit nightcore-api.core.wasm \
       --world wasi:http/nightcore --emit-canonical-names -o nightcore-api.embed.wasm \
-  && wasm-tools component new nightcore-api.embed.wasm -o nightcore-api.wasm
+  && wasm-tools component new nightcore-api.embed.wasm -o nightcore-api.wasm \
+  # AOT with THIS image's wasmtime only — .cwasm is version/arch-specific.
+  && wasmtime compile nightcore-api.wasm -o nightcore-api.cwasm
 
 FROM debian:bookworm-slim
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates \
   && rm -rf /var/lib/apt/lists/* \
   && useradd --system --no-create-home nightcore
+# Same binary that produced nightcore-api.cwasm in the build stage.
 COPY --from=build /usr/local/bin/wasmtime /usr/local/bin/wasmtime
 WORKDIR /app
-COPY --from=build /src/nightcore-api.wasm ./nightcore-api.wasm
+COPY --from=build /src/nightcore-api.cwasm ./nightcore-api.cwasm
 USER nightcore
 # Small VPS: 2 tokio worker threads is plenty. HOME is writable for wasmtime's cache dir.
 ENV TOKIO_WORKER_THREADS=2 HOME=/tmp
 EXPOSE 8080
-ENTRYPOINT ["/usr/local/bin/wasmtime", "serve", "-S", "cli,inherit-env", "--addr", "0.0.0.0:8080", "/app/nightcore-api.wasm"]
+# --allow-precompiled: load in-image AOT .cwasm (must match this wasmtime).
+# Selective --env (not inherit-env): prod Polar secrets only (no SANDBOX_* on Dokku).
+# Reuse instances across requests now that the guest resets its bump heap.
+ENTRYPOINT ["/usr/local/bin/wasmtime", "serve", "--allow-precompiled", "-S", "cli", "--env", "POLAR_ACCESS_TOKEN", "--env", "POLAR_PRODUCT_ID", "--env", "POLAR_ORGANIZATION_ID", "--max-instance-reuse-count", "128", "--max-instance-concurrent-reuse-count", "1", "--addr", "0.0.0.0:8080", "/app/nightcore-api.cwasm"]
