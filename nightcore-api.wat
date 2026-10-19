@@ -24,6 +24,9 @@
 ;; Instance reuse: $heap_retain marks the end of long-lived bump data
 ;; (cached get-environment). Each handle() resets $heap to $heap_retain
 ;; so per-request CABI temps (path, headers, Polar body lists) are reused.
+;; Defense-in-depth: handle() also memory.fill fixed scratch (0x0000..0x03FF,
+;; 0x2000..0xBFFF) and the reclaimed bump region [$heap_retain, 1MiB) so prior
+;; license keys / Polar JSON / Bearer bytes do not linger across sequential reuse.
 
 (module
   ;; ---- wasi:http/types ----
@@ -782,6 +785,15 @@
     (global.set $origin_len (i32.const 0))
     (global.set $sandbox (i32.const 0))
     (global.set $resp_len (i32.const 0))
+
+    ;; Wipe per-request scratch so sequential reuse cannot retain secrets in RAM.
+    ;; Do not touch the string table (0x0400..0x1FFF) or env bytes below $heap_retain.
+    (memory.fill (i32.const 0x0000) (i32.const 0) (i32.const 0x0400))
+    (memory.fill (i32.const 0x2000) (i32.const 0) (i32.const 0xa000))
+    (memory.fill
+      (global.get $heap_retain)
+      (i32.const 0)
+      (i32.sub (i32.const 1048576) (global.get $heap_retain)))
     (global.set $heap (global.get $heap_retain))
 
     ;; Cache get-environment across reused instances. Strings live below
