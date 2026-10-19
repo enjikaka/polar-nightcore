@@ -8,9 +8,9 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/* \
   && arch="$(uname -m)" \
   && case "$arch" in \
-    x86_64) target="x86_64-linux" ;; \
-    aarch64|arm64) target="aarch64-linux" ;; \
-    *) echo "Unsupported architecture: $arch" >&2; exit 1 ;; \
+  x86_64) target="x86_64-linux" ;; \
+  aarch64|arm64) target="aarch64-linux" ;; \
+  *) echo "Unsupported architecture: $arch" >&2; exit 1 ;; \
   esac \
   && curl -fsSL "https://github.com/bytecodealliance/wasmtime/releases/download/v${WASMTIME_VERSION}/wasmtime-v${WASMTIME_VERSION}-${target}.tar.xz" -o /tmp/wasmtime.tar.xz \
   && tar -xJf /tmp/wasmtime.tar.xz -C /tmp \
@@ -28,7 +28,7 @@ RUN curl -fsSL https://github.com/WebAssembly/wasi-http/archive/refs/tags/v0.2.8
   && cp nightcore.wit /tmp/wasi-http-0.2.8/wit/nightcore.wit \
   && wasm-tools parse nightcore-api.wat -o nightcore-api.core.wasm \
   && wasm-tools component embed /tmp/wasi-http-0.2.8/wit nightcore-api.core.wasm \
-      --world wasi:http/nightcore --emit-canonical-names -o nightcore-api.embed.wasm \
+  --world wasi:http/nightcore --emit-canonical-names -o nightcore-api.embed.wasm \
   && wasm-tools component new nightcore-api.embed.wasm -o nightcore-api.wasm \
   # AOT with THIS image's wasmtime only — .cwasm is version/arch-specific.
   && wasmtime compile nightcore-api.wasm -o nightcore-api.cwasm
@@ -49,4 +49,4 @@ EXPOSE 8080
 # --allow-precompiled: load in-image AOT .cwasm (must match this wasmtime).
 # Selective --env (not inherit-env): prod Polar secrets only (no SANDBOX_* on Dokku).
 # Reuse instances across requests now that the guest resets its bump heap.
-ENTRYPOINT ["/usr/local/bin/wasmtime", "serve", "--allow-precompiled", "-S", "cli", "--env", "POLAR_ACCESS_TOKEN", "--env", "POLAR_PRODUCT_ID", "--env", "POLAR_ORGANIZATION_ID", "--max-instance-reuse-count", "128", "--max-instance-concurrent-reuse-count", "1", "--addr", "0.0.0.0:8080", "/app/nightcore-api.cwasm"]
+ENTRYPOINT ["/usr/local/bin/wasmtime", "serve", "--allow-precompiled", "-S", "cli", "--env", "POLAR_ACCESS_TOKEN", "--env", "POLAR_PRODUCT_ID", "--env", "POLAR_ORGANIZATION_ID", "--env", "SANDBOX_POLAR_ACCESS_TOKEN", "--env", "SANDBOX_POLAR_PRODUCT_ID", "--env", "SANDBOX_POLAR_ORGANIZATION_ID", "--max-instance-reuse-count", "128", "--max-instance-concurrent-reuse-count", "1", "--addr", "0.0.0.0:8080", "/app/nightcore-api.cwasm"]
