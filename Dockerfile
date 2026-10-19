@@ -47,6 +47,6 @@ USER nightcore
 ENV TOKIO_WORKER_THREADS=2 HOME=/tmp
 EXPOSE 8080
 # --allow-precompiled: load in-image AOT .cwasm (must match this wasmtime).
-# Selective --env (not inherit-env): only Polar secrets reach the guest.
+# Selective --env (not inherit-env): prod Polar secrets only (no SANDBOX_* on Dokku).
 # Reuse instances across requests now that the guest resets its bump heap.
-ENTRYPOINT ["/usr/local/bin/wasmtime", "serve", "--allow-precompiled", "-S", "cli", "--env", "POLAR_ACCESS_TOKEN", "--env", "POLAR_PRODUCT_ID", "--env", "POLAR_ORGANIZATION_ID", "--env", "SANDBOX_POLAR_ACCESS_TOKEN", "--env", "SANDBOX_POLAR_PRODUCT_ID", "--env", "SANDBOX_POLAR_ORGANIZATION_ID", "--max-instance-reuse-count", "128", "--max-instance-concurrent-reuse-count", "1", "--addr", "0.0.0.0:8080", "/app/nightcore-api.cwasm"]
+ENTRYPOINT ["/usr/local/bin/wasmtime", "serve", "--allow-precompiled", "-S", "cli", "--env", "POLAR_ACCESS_TOKEN", "--env", "POLAR_PRODUCT_ID", "--env", "POLAR_ORGANIZATION_ID", "--max-instance-reuse-count", "128", "--max-instance-concurrent-reuse-count", "1", "--addr", "0.0.0.0:8080", "/app/nightcore-api.cwasm"]
