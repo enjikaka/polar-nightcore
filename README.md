@@ -21,6 +21,10 @@ prefixed with `SANDBOX_` for sandbox. The entrypoint passes only those six via
 `wasmtime serve --env NAME` (no blanket `inherit-env`). Instances are reused
 across up to 128 requests (`--max-instance-reuse-count 128`).
 
+The image AOT-compiles the component to `nightcore-api.cwasm` during `docker build`
+with the **same** `wasmtime` binary that later runs `serve --allow-precompiled`.
+Do not copy a `.cwasm` built by a different Wasmtime version or CPU architecture.
+
 ## Routes
 
 | Route | Result |
